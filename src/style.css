@@ -1,0 +1,16 @@
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #242424;
+  color: #0ca5e1;
+}
+
+canvas {
+  display: block;
+  margin: 0 auto;
+}

@@ -23,6 +23,8 @@
 
 ## 界面展示
 ![界面1](https://github.com/a7laya/solarST/blob/master/public/other/1.jpg)
+![界面1](https://github.com/a7laya/solarST/blob/master/public/other/2.jpg)
+![界面1](https://github.com/a7laya/solarST/blob/master/public/other/3.jpg)
 
 ## 技术栈
 

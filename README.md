@@ -21,6 +21,9 @@
 - **画布拖动**：支持鼠标拖动画布，自由探索太阳系
 - **响应式设计**：自适应浏览器窗口大小变化
 
+## 界面展示
+![界面1](https://github.com/a7laya/solarST/blob/master/public/other/1.jpg)
+
 ## 技术栈
 
 - **Vue 3**：使用Vue 3框架和Composition API

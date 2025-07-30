@@ -33,9 +33,8 @@ Welcome to the Solar System Project, an interactive 3D visualization of our cosm
    ```
 =======
 ## 界面展示
-![界面1](https://github.com/a7laya/solarST/blob/master/public/other/1.jpg)
-![界面1](https://github.com/a7laya/solarST/blob/master/public/other/2.jpg)
-![界面1](https://github.com/a7laya/solarST/blob/master/public/other/3.jpg)
+![界面1](https://github.com/a7laya/solarST/blob/master/public/other/1.png)
+![界面1](https://github.com/a7laya/solarST/blob/master/public/other/2.png)
 
 ## 技术栈
 >>>>>>> 6ce2955f2178bf05452d9689f08babf6f76c25cc

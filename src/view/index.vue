@@ -1,33 +1,33 @@
 <template>
   <div>
     <canvas id="canvas"></canvas>
-    <div class="control" style="width:200px">
-      <div><span>画面比例设置</span> <input type="text" v-model="config.systemRate">
+    <div class="control" style="width:220px">
+      <div><span>systemRate</span> <input type="text" v-model="config.systemRate">
         <button @click="systemRateChange('add')">+</button>
         <button @click="systemRateChange('sub')">-</button>
       </div>
-      <div><span>Y 轴 缩小比例 </span> <input type="text" v-model="config.yRate">
+      <div><span>gradientRate</span> <input type="text" v-model="config.yRate">
         <button @click="yRateChange('add')">+</button>
         <button @click="yRateChange('sub')">-</button>
       </div>
-      <div><span>行星轨道缩放</span> <input type="text" v-model="config.oRate">
+      <div><span>orbitalRate</span> <input type="text" v-model="config.oRate">
         <button @click="oRateChange('add')">+</button>
         <button @click="oRateChange('sub')">-</button>
       </div>
       <div>
-        <span>行星运行速度</span> <input type="text" v-model="config.sRate">
+        <span>speedRate</span> <input type="text" v-model="config.sRate">
         <button @click="sRateChange('add')">+</button>
         <button @click="sRateChange('sub')">-</button>
       </div>
-      <div><span>行星大小缩放</span> <input type="text" v-model="config.rRate">
+      <div><span>planetScale</span> <input type="text" v-model="config.rRate">
         <button @click="rRateChange('add')">+</button>
         <button @click="rRateChange('sub')">-</button>
       </div>
       <!-- 各天体的下拉选择菜单 -->
       <div>
-        <span>查找锁定天体</span>
+        <span>findAndLockPlanet</span>
         <select v-model="findObject" @change="handleChangeObject">
-          <option value="">解除锁定</option>
+          <option value="">unlock</option>
           <option v-for="(item, key) in planets" :value="key">{{key}}</option>
         </select>
       </div>
@@ -198,6 +198,8 @@ export default {
         this.sunY -= dy * 0.02
         this.lastSunX = this.sunX
         this.lastSunY = this.sunY
+      } else {
+        // this.findObject = null
       }
     },
     
@@ -317,6 +319,7 @@ export default {
     // ========== 鼠标拖拽 ==========
     handleMouseDown(e) {
       this.isMouseDown = true
+      this.findObject = null
       this.startX = e.clientX
       this.startY = e.clientY
     },

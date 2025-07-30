@@ -42,11 +42,12 @@ class Planet {
         // 如果轨道半径为0，则不更新坐标
         if(this.orbitalR === 0) return;
         this.angle = this.speed * performance.now() * Math.PI / 18000;
-        // console.log(this.angle);
+        // 根据倾斜角度 写出近大远小的效果
         if(this.planetDate.orbitalR && this.yRate < 1) {
-            if(this.targetDate.name === 'sun'){
-                this.r = this.r * (2+Math.sin(this.angle));
-            } else if(this.targetDate.targetDate && this.targetDate.targetDate.name == 'sun') {
+            if (this.targetDate.name === 'sun') {
+                this.r = this.r * (1.5 + this.yRate +Math.sin(this.angle) * this.orbitalR / 1000);
+                this.r = this.r < 1 ? 1 : this.r;
+            } else if (this.targetDate.targetDate && this.targetDate.targetDate.name == 'sun') {
                 this.orbitalR = this.orbitalR * (2+Math.sin(this.targetDate.angle));
             }
         }
@@ -71,8 +72,6 @@ class Planet {
 
         // 绘制行星 - 图片
         if(this.img instanceof Array && this.img.length > 0) {
-            
-
 
             let img = this.img[Math.floor(performance.now() / 100) % this.img.length]
             ctx.save();
@@ -99,7 +98,7 @@ class Planet {
                     }
                 } 
             }
-            if(dx*dx + dy*dy < this.targetR * this.targetR) {
+            if(dx*dx + dy*dy < this.targetR * this.targetR * 0.65) {
                 if(this.y < this.targetY) {return} else { 
                     if(this.targetDate.name == 'sun'){
                         ctx.arc(this.x,this.y,this.r,0,Math.PI * 2);
@@ -112,48 +111,29 @@ class Planet {
 
                 }
             }
+            if(img.width > img.height) {
+                // 用这个会变形 ctx.drawImage(img, this.orbitalR - this.r, 0, this.r * 2, this.r * 2); 
+                // 用img.height的一半作为半径
+                this.r1  = img.width/img.height*this.r;
+                this.r2  = this.r;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.drawImage(img,  -this.r1, -this.r,  this.r1 * 2, this.r2 * 2);
+            } else {
+                // console.log(img.width,img.height);
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.drawImage(img,  -this.r, -this.r, this.r * 2, this.r * 2);
+                // ctx.drawImage(img,  this.x-this.r, this.y-this.r, this.r * 2, this.r * 2);
+            }
 
-            ctx.drawImage(img,this.x - this.r,this.y - this.r,this.r * 2,this.r * 2);
+            // ctx.drawImage(img,this.x - this.r,this.y - this.r,this.r * 2,this.r * 2);
             ctx.closePath();
             ctx.restore();
             return
         }
 
 
-        // 绘制行星
-        // ctx.save();
-        // ctx.beginPath();
-        // ctx.arc(this.x,this.y,this.r,0,Math.PI * 2);
-        // ctx.fillStyle = this.img;
-        // let dx = this.x - this.targetX;
-        // let dy = this.y - this.targetY;
-        // if(this.targetDate.targetR){
-        //     // console.log('this.targetDate.targetDateR',this.targetDate.targetDateR)
-        //     let dx2 = this.x - this.targetDate.targetX
-        //     let dy2 = this.y - this.targetDate.targetY
-        //     if(dx2*dx2 + dy2*dy2 < this.targetDate.targetR * this.targetDate.targetR) {
-        //         if(this.targetY < this.targetDate.targetY) {
-        //             return
-        //         } else { 
-        //             ctx.fillStyle = 'black'; 
-        //         }
-        //     } 
-        // }
-        // if(dx*dx + dy*dy < this.targetR * this.targetR) {
-        //     if(this.y < this.targetY) {return} else { 
-        //         if(this.targetDate.name == 'sun') ctx.fillStyle = 'black'; 
-        //     }
-        // }
-        
-        // // 绘制行星
-        // // if(!this.img instanceof Array) {
-            
-        // ctx.fill();
-        // ctx.closePath();
-        // ctx.restore();
-        // } else {
-            
-        // }
         
     }
 }

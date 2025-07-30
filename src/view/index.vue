@@ -23,6 +23,14 @@
         <button @click="rRateChange('add')">+</button>
         <button @click="rRateChange('sub')">-</button>
       </div>
+      <!-- 各天体的下拉选择菜单 -->
+      <div>
+        <span>查找锁定天体</span>
+        <select v-model="findObject" @change="handleChangeObject">
+          <option value="">解除锁定</option>
+          <option v-for="(item, key) in planets" :value="key">{{key}}</option>
+        </select>
+      </div>
     </div>
   </div>
 </template>
@@ -35,14 +43,15 @@ export default {
       canvas: null,
       ctx: null,
       sunR: 100, // 太阳半径 这是整个系统的尺度标准 其他天体的尺度都是基于这个比例
-      planets: {},
+      planets: {}, // 行星数据
+      objects: {}, // 实例化的行星对象
       imgs: {sun:[], earth:[], moon:[], mercury:[], venus:[], mars:[], jupiter:[], saturn:[], uranus:[], neptune:[]},
       config: {
         systemRate: 1, // 太阳系比例设置
-        yRate: 1, // 倾斜角度
-        oRate: 0.02, // 行星轨道缩放
-        sRate: 1, // 行星运行速度
-        rRate: 1, // 行星大小缩放
+        yRate: 0.2, // 倾斜角度
+        oRate: 0.01, // 行星轨道缩放
+        sRate: 0.5, // 行星运行速度
+        rRate: 3, // 行星大小缩放
         ctx: null,
       },
       // 鼠标拖动画面的各种变量
@@ -53,6 +62,9 @@ export default {
       sunY: 0,
       lastSunX: 0,
       lastSunY: 0,
+
+      // 查找标记
+      findObject: null,
     }
   },
   computed: {
@@ -90,8 +102,8 @@ export default {
     this.planets.mars    = {name: 'mars',    r: this.marsR,    img: this.imgs.mars || '#f00', speed: 0.53,   orbitalR: this.marsOR}
     this.planets.jupiter = {name: 'jupiter', r: this.jupiterR, img: this.imgs.jupiter || '#f0f', speed: 0.084,  orbitalR: this.jupiterOR}
     this.planets.saturn  = {name: 'saturn',  r: this.saturnR,  img: this.imgs.saturn || '#0ff', speed: 0.034,  orbitalR: this.saturnOR}
-    this.planets.uranus  = {name: 'uranus',  r: this.uranusR,  img: this.imgs.venus || '#00f', speed: 0.0012, orbitalR: this.uranusOR}
-    this.planets.neptune = {name: 'neptune', r: this.neptuneR, img: this.imgs.venus || '#0f0', speed: 0.006,  orbitalR: this.neptuneOR}
+    this.planets.uranus  = {name: 'uranus',  r: this.uranusR,  img: this.imgs.uranus || '#00f', speed: 0.0012, orbitalR: this.uranusOR}
+    this.planets.neptune = {name: 'neptune', r: this.neptuneR, img: this.imgs.neptune || '#0f0', speed: 0.006,  orbitalR: this.neptuneOR}
     this.planets.moon    = {name: 'moon',    r: this.moonR,    img: this.imgs.moon || '#fff', speed: 13.2,   orbitalR: this.moonOR}
     console.log(this.planets)
   },
@@ -124,26 +136,70 @@ export default {
       await this.loadImgs('mars', 1)
       await this.loadImgs('jupiter', 1)
       await this.loadImgs('saturn', 1)
+      await this.loadImgs('uranus', 1)
+      await this.loadImgs('neptune', 1)
+      this.draw()
+    },
+    windowResize() {
+      this.canvas.width = window.innerWidth
+      this.canvas.height = window.innerHeight
+      this.sunX = this.canvas.width / 2
+      this.sunY = this.canvas.height / 2
+      this.lastSunX = this.sunX
+      this.lastSunY = this.sunY
+    },
+    handleMouseDown(e) {
+      this.isMouseDown = true
+      this.startX = e.clientX
       this.draw()
     },
     draw() {
       this.config.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-      const sun = new Planet(this.planets.sun,{x: this.sunX, y: this.sunY},this.config)
-      const mercury = new Planet(this.planets.mercury,sun,this.config)
-      const venus = new Planet(this.planets.venus,sun,this.config)
-      const earth = new Planet(this.planets.earth,sun,this.config)
-      if(performance.now()<20) { console.log('earth:',earth)}
-      this.planets.moon.r = earth.r / 3.67 / this.config.rRate
-      const moon = new Planet(this.planets.moon,earth,this.config)
-      if(performance.now()<20) { console.log('moon:',moon)}
-      const mars = new Planet(this.planets.mars,sun,this.config)
-      const jupiter = new Planet(this.planets.jupiter,sun,this.config)
-      const saturn = new Planet(this.planets.saturn,sun,this.config)
-      const uranus = new Planet(this.planets.uranus,sun,this.config)
-      const neptune = new Planet(this.planets.neptune,sun,this.config)
+      this.objects.sun = new Planet(this.planets.sun,{x: this.sunX, y: this.sunY},this.config)
+      this.objects.mercury = new Planet(this.planets.mercury,this.objects.sun,this.config)
+      this.objects.venus = new Planet(this.planets.venus,this.objects.sun,this.config)
+      this.objects.earth = new Planet(this.planets.earth,this.objects.sun,this.config)
+      // 根据地球半径更新月球半径
+      this.planets.moon.r = this.objects.earth.r / 3.67 / this.config.rRate / this.config.systemRate
+      this.objects.moon = new Planet(this.planets.moon,this.objects.earth,this.config)
+      this.objects.mars = new Planet(this.planets.mars,this.objects.sun,this.config)
+      this.objects.jupiter = new Planet(this.planets.jupiter,this.objects.sun,this.config)
+      this.objects.saturn = new Planet(this.planets.saturn,this.objects.sun,this.config)
+      this.objects.uranus = new Planet(this.planets.uranus,this.objects.sun,this.config)
+      this.objects.neptune = new Planet(this.planets.neptune,this.objects.sun,this.config)
+      
+      // 寻星
+      this.findAndLockPlanet(this.objects[this.findObject])
+      // let dx = neptune.x - this.canvas.width/2
+      // let dy = neptune.y - this.canvas.height/2
+      // if((Math.abs(dx) > 20 || Math.abs(dy) > 20) && !this.isMouseDown) {
+      //   this.sunX -= dx * 0.02
+      //   this.sunY -= dy * 0.02
+      //   this.lastSunX = this.sunX
+      //   this.lastSunY = this.sunY
+      // }
+
+
+
       requestAnimationFrame(this.draw)
     },
     
+    // 
+    handleChangeObject() {
+      console.log(this.findObject)
+    },
+    // 寻找并锁定天体
+    findAndLockPlanet(e) {
+      if(!e) return
+      let dx = e.x - this.canvas.width/2
+      let dy = e.y - this.canvas.height/2
+      if((Math.abs(dx) > 10 || Math.abs(dy) > 10) && !this.isMouseDown) {
+        this.sunX -= dx * 0.02
+        this.sunY -= dy * 0.02
+        this.lastSunX = this.sunX
+        this.lastSunY = this.sunY
+      }
+    },
     
 
     // 加载图片方法

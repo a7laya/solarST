@@ -14,6 +14,7 @@ Welcome to the Solar System Project, an interactive 3D visualization of our cosm
 
 ## Installation
 
+<<<<<<< HEAD
 1. Clone the repository:
    ```
    git clone https://github.com/yourusername/solar-system.git
@@ -30,6 +31,14 @@ Welcome to the Solar System Project, an interactive 3D visualization of our cosm
    ```
    npm start
    ```
+=======
+## 界面展示
+![界面1](https://github.com/a7laya/solarST/blob/master/public/other/1.jpg)
+![界面1](https://github.com/a7laya/solarST/blob/master/public/other/2.jpg)
+![界面1](https://github.com/a7laya/solarST/blob/master/public/other/3.jpg)
+
+## 技术栈
+>>>>>>> 6ce2955f2178bf05452d9689f08babf6f76c25cc
 
 ## Usage
 

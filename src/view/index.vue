@@ -286,6 +286,9 @@ export default {
         this.config.yRate += 1
       } else if (type === 'sub' && this.config.yRate > 0){
         this.config.yRate -= 1
+        if(this.config.yRate < 0) {
+          this.config.yRate = 0
+        }
       }
       this.config.yRate /= 10
     },

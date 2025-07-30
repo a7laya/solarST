@@ -1,374 +1,297 @@
 <template>
   <div>
     <canvas id="canvas"></canvas>
-    <div class="control">
-      <div><span>太阳大小设置</span> <input type="text" v-model="sunRate">
-        <button @click="sunRateChange('add')">+</button>
-        <button @click="sunRateChange('sub')">-</button>
+    <div class="control" style="width:200px">
+      <div><span>画面比例设置</span> <input type="text" v-model="config.systemRate">
+        <button @click="systemRateChange('add')">+</button>
+        <button @click="systemRateChange('sub')">-</button>
       </div>
-      <div><span>行星轨道缩放</span> <input type="text" v-model="orbitalRate">
-        <button @click="orbitalRateChange('add')">+</button>
-        <button @click="orbitalRateChange('sub')">-</button>
+      <div><span>Y 轴 缩小比例 </span> <input type="text" v-model="config.yRate">
+        <button @click="yRateChange('add')">+</button>
+        <button @click="yRateChange('sub')">-</button>
+      </div>
+      <div><span>行星轨道缩放</span> <input type="text" v-model="config.oRate">
+        <button @click="oRateChange('add')">+</button>
+        <button @click="oRateChange('sub')">-</button>
       </div>
       <div>
-        <span>行星运行速度</span> <input type="text" v-model="speedRate">
-        <button @click="speedRateChange('add')">+</button>
-        <button @click="speedRateChange('sub')">-</button>
+        <span>行星运行速度</span> <input type="text" v-model="config.sRate">
+        <button @click="sRateChange('add')">+</button>
+        <button @click="sRateChange('sub')">-</button>
       </div>
-      <div><span>行星大小缩放</span> <input type="text" v-model="planetRate">
-        <button @click="planetRateChange('add')">+</button>
-        <button @click="planetRateChange('sub')">-</button>
+      <div><span>行星大小缩放</span> <input type="text" v-model="config.rRate">
+        <button @click="rRateChange('add')">+</button>
+        <button @click="rRateChange('sub')">-</button>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import Planet from '../lib/Planet.js'
-// 获取画布
-const canvas = ref(null)
-// 获取画布上下文
-const ctx = ref(null)
-// 画布宽高
-const w = ref(0)
-const h = ref(0)
-// 行星图片
-const planetImg = {}
-// 太阳图片 一个数组组成的动态图片组
-const sunImg = []
+<script>
+import Planet from '@/lib/Planet.js'
+export default {
+  data() {
+    return {
+      canvas: null,
+      ctx: null,
+      sunR: 100, // 太阳半径 这是整个系统的尺度标准 其他天体的尺度都是基于这个比例
+      planets: {},
+      imgs: {sun:[], earth:[], moon:[], mercury:[], venus:[], mars:[], jupiter:[], saturn:[], uranus:[], neptune:[]},
+      config: {
+        systemRate: 1, // 太阳系比例设置
+        yRate: 1, // 倾斜角度
+        oRate: 0.02, // 行星轨道缩放
+        sRate: 1, // 行星运行速度
+        rRate: 1, // 行星大小缩放
+        ctx: null,
+      },
+      // 鼠标拖动画面的各种变量
+      isMouseDown: false,
+      startX: 0,
+      startY: 0,
+      sunX: 0,
+      sunY: 0,
+      lastSunX: 0,
+      lastSunY: 0,
+    }
+  },
+  computed: {
+    // 根据太阳半径计算八大行星半径
+    mercuryR () { return this.sunR/285.4 },
+    venusR   () { return this.sunR/115.1 },
+    earthR   () { return this.sunR/109.3 },
+    marsR    () { return this.sunR/205.5 },
+    jupiterR () { return this.sunR/9.96 },
+    saturnR  () { return this.sunR/12.0 },
+    uranusR  () { return this.sunR/27.5 },
+    neptuneR () { return this.sunR/28.3 },
 
-// 鼠标拖动画面的各种变量
-const isMouseDown = ref(false)
-const startX = ref(0)
-const startY = ref(0)
-const sunX = ref(0)
-const sunY = ref(0)
-const lastSunX = ref(0)
-const lastSunY = ref(0)
+    // 月球半径
+    moonR () { return this.earthR/3.67 },
 
-
-
-
-// 加载行星图片
-
-const planetRate = ref(10)     // 行星大小缩放比例
-const orbitalRate = ref(1/50)  // 行星轨道半径缩放比例
-const speedRate = ref(-1)  // 行星运行速度缩放比例 负数表示逆时针
-const sunRate = ref(1)  // 太阳缩放比例
-
-onMounted(async () => {
-  canvas.value = document.getElementById('canvas')
-  ctx.value = canvas.value.getContext('2d')
-  // 设置画布宽高为浏览器窗口宽高 100vw
-  w.value = canvas.value.width = window.innerWidth
-  h.value = canvas.value.height = window.innerHeight
-
-  sunX.value  = lastSunX.value = w.value / 2
-  sunY.value  = lastSunY.value = h.value / 2
-
-  // 监听鼠标按下事件
-  canvas.value.addEventListener('mousedown', handleMouseDown)
-  // 监听鼠标松开事件
-  canvas.value.addEventListener('mouseup', handleMouseUp)
-  // 监听鼠标失焦事件
-  canvas.value.addEventListener('mouseleave', handleMouseUp)
-  // 监听鼠标移动事件
-  canvas.value.addEventListener('mousemove', handleMouseMove)
-
-
-
-  // 监听鼠标移动事件
-  
-  await loadSunImages()
-  await loadPlanetImages()
-  
-
-  // 以太阳半径为基准  构建其他行星的半径和轨道半径
-
-  function animate() {
-    ctx.value.clearRect(0, 0, w.value, h.value)
+    // 根据太阳半径计算八大行星轨道半径
+    // AU = 149600000km sunR = 696340km
+    AU() { return this.sunR * 149600000 / 696340 },
+    earthOR   () { return this.AU * 1 },
+    moonOR    () { return this.earthR * 30 / this.config.oRate},
+    mercuryOR () { return this.AU * 0.387 },
+    venusOR   () { return this.AU * 0.723 },
+    marsOR    () { return this.AU * 1.524 },
+    jupiterOR () { return this.AU * 5.203 },
+    saturnOR  () { return this.AU * 9.537 },
+    uranusOR  () { return this.AU * 19.191 },
+    neptuneOR () { return this.AU * 30.069 },
+  },
+  created() {
+    this.planets.sun     = {name: 'sun',     r: this.sunR,     img: this.imgs.sun || '#f00', speed: 0, orbitalR: 0}
+    this.planets.mercury = {name: 'mercury', r: this.mercuryR, img: this.imgs.mercury || '#f0f', speed: 4.09,   orbitalR: this.mercuryOR}
+    this.planets.venus   = {name: 'venus',   r: this.venusR,   img: this.imgs.venus || '#0f0', speed: 1.60,   orbitalR: this.venusOR}
+    this.planets.earth   = {name: 'earth',   r: this.earthR,   img: this.imgs.earth || '#0ca5e1', speed: 1.00,   orbitalR: this.earthOR}
+    this.planets.mars    = {name: 'mars',    r: this.marsR,    img: this.imgs.mars || '#f00', speed: 0.53,   orbitalR: this.marsOR}
+    this.planets.jupiter = {name: 'jupiter', r: this.jupiterR, img: this.imgs.jupiter || '#f0f', speed: 0.084,  orbitalR: this.jupiterOR}
+    this.planets.saturn  = {name: 'saturn',  r: this.saturnR,  img: this.imgs.saturn || '#0ff', speed: 0.034,  orbitalR: this.saturnOR}
+    this.planets.uranus  = {name: 'uranus',  r: this.uranusR,  img: this.imgs.venus || '#00f', speed: 0.0012, orbitalR: this.uranusOR}
+    this.planets.neptune = {name: 'neptune', r: this.neptuneR, img: this.imgs.venus || '#0f0', speed: 0.006,  orbitalR: this.neptuneOR}
+    this.planets.moon    = {name: 'moon',    r: this.moonR,    img: this.imgs.moon || '#fff', speed: 13.2,   orbitalR: this.moonOR}
+    console.log(this.planets)
+  },
+  mounted() {
+    this.init()
+    window.addEventListener('resize', this.windowResize)
+  },
+  methods: {
+    async init() {
+      this.canvas = document.getElementById('canvas')
+      this.canvas.style.backgroundColor = '#000'
+      this.canvas.style.cursor = 'grab'
+      this.config.ctx = canvas.getContext('2d')
+      this.canvas.width = window.innerWidth
+      this.canvas.height = window.innerHeight
+      this.sunX = this.canvas.width / 2
+      this.sunY = this.canvas.height / 2
+      this.lastSunX = this.sunX
+      this.lastSunY = this.sunY
+      this.canvas.addEventListener('mouseleave', this.handleMouseLeave)
+      this.canvas.addEventListener('mousedown', this.handleMouseDown)
+      this.canvas.addEventListener('mouseup', this.handleMouseUp)
+      this.canvas.addEventListener('mousemove', this.handleMouseMove)
+      this.canvas.addEventListener('wheel', this.canvasScale)
+      await this.loadImgs('sun', 60)
+      await this.loadImgs('earth', 1)
+      await this.loadImgs('moon', 1)
+      await this.loadImgs('mercury', 1)
+      await this.loadImgs('venus', 1)
+      await this.loadImgs('mars', 1)
+      await this.loadImgs('jupiter', 1)
+      await this.loadImgs('saturn', 1)
+      this.draw()
+    },
+    draw() {
+      this.config.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      const sun = new Planet(this.planets.sun,{x: this.sunX, y: this.sunY},this.config)
+      const mercury = new Planet(this.planets.mercury,sun,this.config)
+      const venus = new Planet(this.planets.venus,sun,this.config)
+      const earth = new Planet(this.planets.earth,sun,this.config)
+      if(performance.now()<20) { console.log('earth:',earth)}
+      this.planets.moon.r = earth.r / 3.67 / this.config.rRate
+      const moon = new Planet(this.planets.moon,earth,this.config)
+      if(performance.now()<20) { console.log('moon:',moon)}
+      const mars = new Planet(this.planets.mars,sun,this.config)
+      const jupiter = new Planet(this.planets.jupiter,sun,this.config)
+      const saturn = new Planet(this.planets.saturn,sun,this.config)
+      const uranus = new Planet(this.planets.uranus,sun,this.config)
+      const neptune = new Planet(this.planets.neptune,sun,this.config)
+      requestAnimationFrame(this.draw)
+    },
     
-    // 创建太阳
-    // let sun = new Planet( w.value / 2,h.value / 2,30*sunRate.value,sunImg[1],0,0)
-    // 根据performance.now()来控制太阳动图的帧率
-    let sun = new Planet( sunX.value,sunY.value,30*sunRate.value,sunImg[Math.floor(performance.now() / 100) % sunImg.length],0,0)
+    
+
+    // 加载图片方法
+    async loadImgs(name, count) {
+      // 将'../../public/planet/sun'一组的图片共23张加载到this.imgs.sun对象中
+      for (let i = 1; i <= count; i++) {
+        const img = new Image()
+        img.src = `../../public/planet/${name}/${i}.png`
+        this.imgs[name][i-1] = img
+      }
+      return Promise.all(Object.values(this.imgs[name]).map(img => new Promise(resolve => {
+          img.onload = () => {
+            resolve()
+          }
+          img.onerror = () => {
+            console.error(`Failed to load sun.png`)
+            resolve() // 继续加载其他图片
+          }
+        }))).then(() => {
+          console.log('Sun images loaded:', this.imgs[name])
+        })
+    },
+    async loadSunImages() {
+      // 将'../../public/planet/sun'一组的图片共23张加载到this.imgs.sun对象中
+      for (let i = 1; i <= 60; i++) {
+        const img = new Image()
+        img.src = `../../public/planet/sun/${i}.png`
+        this.imgs.sun[i-1] = img
+      }
+      // console.log('this.imgs.sun:', this.imgs.sun)
+      return Promise.all(Object.values(this.imgs.sun).map(img => new Promise(resolve => {
+          img.onload = () => {
+            resolve()
+          }
+          img.onerror = () => {
+            console.error(`Failed to load sun.png`)
+            resolve() // 继续加载其他图片
+          }
+        }))).then(() => {
+          console.log('Sun images loaded:', this.imgs.sun)
+        })
+    },
     
     
-    sun.draw(ctx.value)
-
-    // 计算一个天文单位在屏幕上的显示距离  AU = 149600000  sunR = 696340
-    let AU = 149600000/696340 * sun.r * orbitalRate.value
-
-    // 创建水星
-    let mercuryR = 2439.7/696340 * sun.r * planetRate.value
-    let mercurySpeed = 4.74 * speedRate.value
-    let mercury = new Planet( sun.sx, sun.sy, mercuryR, planetImg.mercury, AU*0.387, mercurySpeed,1 )
-    mercury.draw(ctx.value)
-
-    // 创建金星
-    let venusR = 6051.8/696340 * sun.r * planetRate.value
-    let venusSpeed = 3.50 * speedRate.value
-    let venus = new Planet( sun.sx, sun.sy, venusR, planetImg.venus, AU*0.723, venusSpeed,1 )
-    venus.draw(ctx.value)
-
-    // 创建地球 
-    let earthR = 6371/696340 * sun.r * planetRate.value
-    let earthSpeed = 2.98 * speedRate.value
-    let earth = new Planet( sun.sx, sun.sy, earthR,planetImg.earth,AU, earthSpeed,1 )
-    earth.draw(ctx.value)
-
-    // 创建月球
-    let moonR = 1737.1/696340 * sun.r * planetRate.value
-    let moonSpeed = 1.02 * speedRate.value * 5
-    let moon = new Planet( earth.sx, earth.sy-earth.r, moonR,planetImg.moon, AU/30, moonSpeed,0)
-    // console.log(earth)
-    moon.draw(ctx.value)
-
-    // 创建火星
-    let marsR = 3390/696340 * sun.r * planetRate.value
-    let marsSpeed = 1.87 * speedRate.value
-    let mars = new Planet( sun.sx, sun.sy, marsR, planetImg.mars, AU*1.52, marsSpeed,1 )
-    mars.draw(ctx.value)
-
-    // 创建木星
-    let jupiterR = 69911/696340 * sun.r * planetRate.value
-    let jupiterSpeed = 1.30 * speedRate.value
-    let jupiter = new Planet( sun.sx, sun.sy, jupiterR, planetImg.jupiter, AU*5.20, jupiterSpeed,1 )
-    jupiter.draw(ctx.value)
-
-    // 创建土星
-    let saturnR = 58232/696340 * sun.r * planetRate.value
-    let saturnSpeed = 0.96 * speedRate.value
-    let saturn = new Planet( sun.sx, sun.sy, saturnR, planetImg.saturn, AU*9.58, saturnSpeed,1 )
-    saturn.draw(ctx.value)
-
-    // 创建天王星
-    let uranusR = 25362/696340 * sun.r * planetRate.value
-    let uranusSpeed = 0.68 * speedRate.value
-    let uranus = new Planet( sun.sx, sun.sy, uranusR, '#00ffff', AU*19.18, uranusSpeed,1 )
-    uranus.draw(ctx.value)
-
-    // 创建海王星
-    let neptuneR = 24622/696340 * sun.r * planetRate.value
-    let neptuneSpeed = 0.54 * speedRate.value
-    let neptune = new Planet( sun.sx, sun.sy, neptuneR, '#0000ff', AU*30.07, neptuneSpeed,1 )
-    neptune.draw(ctx.value)
-
-    // 创建冥王星
-    let plutoR = 1188/696340 * sun.r * planetRate.value
-    let plutoSpeed = 0.77 * speedRate.value
-    let pluto = new Planet( sun.sx, sun.sy, plutoR, '#888888', AU*39.53, plutoSpeed,1 )
-    pluto.draw(ctx.value)
-
-    // 下一帧继续调用animate函数
-    requestAnimationFrame(animate)
-  }
-  animate()
-  // 屏幕大小改变时，重新设置画布宽高
-    window.addEventListener('resize', () => {
-    w.value = window.innerWidth
-    h.value = window.innerHeight
-    })
-
-})
-
-onUnmounted(() => {
-  ctx.value.clearRect(0, 0, w, h)
-
-})  
-
-// 控制面板
-function speedRateChange(value) { 
-  if(value==='add') {
-    speedRate.value += 1
-  }else{
-    speedRate.value -= 1
-  }
-}
-function sunRateChange(value) {
-  if(value==='add'){
-    if(sunRate.value >= 10) {
-      return
-    }
-    // sunRate.value += 0.1 防止出现小数点后太多位
-    sunRate.value = Math.round(sunRate.value * 10 + 1) / 10
-  }else{
-    if(sunRate.value <= 0.1) {
-      return
-    }
-    // sunRate.value -= 0.1  防止出现小数点后太多位
-    sunRate.value = Math.round(sunRate.value * 10 - 1) / 10
-  }
-}
-function orbitalRateChange(value) {
-  if(value==='add'){
-    if(orbitalRate.value >= 0.99) {
-      return
-    }
-    // orbitalRate.value += 0.01 防止出现小数点后太多位
-    orbitalRate.value = Math.round(orbitalRate.value * 100 + 1) / 100
-  }else{
-    if(orbitalRate.value <= 0.01) {
-      return
-    }
-    orbitalRate.value = Math.round(orbitalRate.value * 100 - 1) / 100
-  }
-}
-
-function planetRateChange(value) {
-  if(value==='add'){
-    if(planetRate.value >= 20) {
-      return
-    }
-    // planetRate.value += 0.1 防止出现小数点后太多位
-    planetRate.value += 1
-  }else{
-    if(planetRate.value <= 1) {
-      return
-    }
-    // planetRate.value -= 0.1  防止出现小数点后太多位
-    planetRate.value -= 1
-  }
-}
-
-
-function loadSunImages() {
-  // 将'../../public/planet/sun'一组的图片共23张加载到sunImg对象中
-  for (let i = 1; i <= 60; i++) {
-    const img = new Image()
-    img.src = `../../public/planet/sun/${i}.png`
-    sunImg[i-1] = img
-  }
-  // console.log('sunImg:', sunImg)
-  return Promise.all(Object.values(sunImg).map(img => new Promise(resolve => {
-    img.onload = () => {
-      resolve()
-    }
-    img.onerror = () => {
-      console.error(`Failed to load sun/${i}.png`)
-      resolve() // 继续加载其他图片
-    }
-  }))).then(() => {
-    console.log('Sun images loaded:', sunImg)
-  })
-}
-
-
-
-function loadPlanetImages() {
-  return Promise.all([
-    new Promise((resolve) => {
-      const img = new Image()
-      img.src = '../../public/planet/mercury.png'
-      img.onload = () => {
-        planetImg.mercury = img
-        resolve()
-      }
-      img.onerror = () => {
-        console.error('Failed to load mercury.png')
-        resolve() // 继续加载其他图片
-      }
-    }),
     
-    new Promise((resolve) => {
-      const img = new Image()
-      img.src = '../../public/planet/venus.png'
-      img.onload = () => {
-        planetImg.venus = img
-        resolve()
+    // 监听视窗大小变化
+    windowResize() {
+      this.canvas.width = window.innerWidth
+      this.canvas.height = window.innerHeight
+    },
+    
+
+    // 鼠标滚轮缩放太阳大小
+    canvasScale(e) {
+      if (e.deltaY < 0) {
+        this.systemRateChange('add')
+      } else {
+        this.systemRateChange('sub')
       }
-      img.onerror = () => {
-        console.error('Failed to load venus.png')
-        resolve() // 继续加载其他图片
+    },
+
+
+    // ========== config参数调节 ==========
+    systemRateChange(type) {
+      this.config.systemRate *= 100
+      if (type === 'add') {
+        this.config.systemRate += 1
+        // 画面比例缩放时，太阳位置也跟着缩放， 确保视窗区域不漂移
+        this.sunX = this.lastSunX = this.sunX * 1.01
+        this.sunY = this.lastSunY = this.sunY * 1.01
+      } else if (type === 'sub' && this.config.systemRate > 1){
+        this.config.systemRate -= 1
+        this.sunX = this.lastSunX = this.sunX * 0.99
+        this.sunY = this.lastSunY = this.sunY * 0.99
       }
-    }),
-    new Promise((resolve) => {
-      const img = new Image()
-      img.src = '../../public/planet/earth.png'
-      img.onload = () => {
-        planetImg.earth = img
-        resolve()
+      this.config.systemRate /= 100
+      this.config.systemRate = Math.round(this.config.systemRate * 100) / 100
+    },
+    yRateChange(type) {
+      this.config.yRate *= 10
+      if (type === 'add' && this.config.yRate < 10) {
+        this.config.yRate += 1
+      } else if (type === 'sub' && this.config.yRate > 0){
+        this.config.yRate -= 1
       }
-      img.onerror = () => {
-        console.error('Failed to load earth.png')
-        resolve() // 继续加载其他图片
+      this.config.yRate /= 10
+    },
+    oRateChange(type) {
+      this.config.oRate *= 100
+      if (type === 'add' && this.config.oRate < 100) {
+        this.config.oRate += 1
+      } else if (type === 'sub' && this.config.oRate > 1){
+        this.config.oRate -= 1
       }
-    }),
-    new Promise((resolve) => {
-      const img = new Image()
-      img.src = '../../public/planet/moon.png'
-      img.onload = () => {
-        planetImg.moon = img
-        resolve()
+      this.config.oRate /= 100
+    },
+    sRateChange(type) {
+      if (type === 'add') {
+        this.config.sRate += 1
+      } else {
+        this.config.sRate -= 1
       }
-      img.onerror = () => {
-        console.error('Failed to load moon.png')
-        resolve() // 继续加载其他图片
+      console.log(this.config.sRate)
+    },
+    rRateChange(type) {
+      this.config.rRate *= 10
+      if (type === 'add' && this.config.rRate < 100) {
+        this.config.rRate += 1
+      } else if (type === 'sub' && this.config.rRate > 1){
+        this.config.rRate -= 1
       }
-    }),
-    new Promise((resolve) => {
-      const img = new Image()
-      img.src = '../../public/planet/mars.png'
-      img.onload = () => {
-        planetImg.mars = img
-        resolve()
+      this.config.rRate /= 10
+    },
+
+    // ========== 鼠标拖拽 ==========
+    handleMouseDown(e) {
+      this.isMouseDown = true
+      this.startX = e.clientX
+      this.startY = e.clientY
+    },
+
+    handleMouseUp() {
+      this.isMouseDown = false
+      this.lastSunX = this.sunX
+      this.lastSunY = this.sunY
+    },
+    handleMouseLeave() {
+      this.isMouseDown = false
+      this.lastSunX = this.sunX
+      this.lastSunY = this.sunY
+    },
+
+    handleMouseMove(e) {
+      if (this.isMouseDown) {
+        this.canvas.style.cursor = 'grabbing'
+        let dx = e.clientX - this.startX
+        let dy = e.clientY - this.startY
+        this.sunX = this.lastSunX + dx
+        this.sunY = this.lastSunY + dy
+      } else {
+        this.canvas.style.cursor = 'grab'
+        // 鼠标未按下时，将太阳位置重置为初始位置
+        // lastSunX = sunX
+        // lastSunY = sunY
       }
-      img.onerror = () => {
-        console.error('Failed to load mars.png')
-        resolve() // 继续加载其他图片
-      }
-    }),new Promise((resolve) => {
-      const img = new Image()
-      img.src = '../../public/planet/jupiter.png'
-      img.onload = () => {
-        planetImg.jupiter = img
-        resolve()
-      }
-      img.onerror = () => {
-        console.error('Failed to load jupiter.png')
-        resolve() // 继续加载其他图片
-      }
-    }),
-    new Promise((resolve) => {
-      const img = new Image()
-      img.src = '../../public/planet/saturn.png'
-      img.onload = () => {
-        planetImg.saturn = img
-        resolve()
-      }
-      img.onerror = () => {
-        console.error('Failed to load saturn.png')
-        resolve() // 继续加载其他图片
-      }
-    }),
-  ]).then(() => {
-    console.log('Images loaded:', planetImg)
-  })
+    },
+  },
 }
-
-
-function handleMouseDown(e) {
-  isMouseDown.value = true
-  startX.value = e.clientX
-  startY.value = e.clientY
-}
-
-function handleMouseUp() {
-  isMouseDown.value = false
-  lastSunX.value = sunX.value
-  lastSunY.value = sunY.value
-}
-
-function handleMouseMove(e) {
-  if (isMouseDown.value) {
-    let dx = e.clientX - startX.value
-    let dy = e.clientY - startY.value
-    sunX.value = lastSunX.value + dx
-    sunY.value = lastSunY.value + dy
-  }
-}
-
 </script>
 
 
@@ -378,11 +301,9 @@ function handleMouseMove(e) {
     top: 10px;
     left: 10px;
     z-index: 999;
-    /* 不随页面放大缩小 */
-    transform: scale(1);
   }
   .control input{
-    width: 10%;
+    width: 20%;
     margin-bottom: 10px;
   }
 
@@ -390,6 +311,8 @@ function handleMouseMove(e) {
     width: 22px;
     margin-bottom: 10px;
   }
-
+  #canvas {
+    cursor: grab;
+  }
   
 </style>

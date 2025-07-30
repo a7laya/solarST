@@ -17,11 +17,11 @@ Welcome to the Solar System Project, an interactive 3D visualization of our cosm
 <<<<<<< HEAD
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/solar-system.git
+   git clone https://github.com/a7laya/solarST.git
    ```
 2. Navigate to the project directory:
    ```
-   cd solar-system
+   cd solarST
    ```
 3. Install dependencies:
    ```
